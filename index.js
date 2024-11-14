@@ -5,6 +5,7 @@ const dns = require("node:dns");
 const bodyParser = require("body-parser");
 const app = express();
 const mongoose = require('mongoose')
+const url = require("node:url");
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -75,13 +76,15 @@ const createAndSaveShortURL = (original_url, done) => {
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.post("/api/shorturl", function (req, res) {
-  dns.lookup(req.body.url, function (err, data) {
+  let url_test = req.body.url;
+  if (url_test.match(/^http.*/)) {
+    url_test = url_test.replace(/(http|https):\/\/(.*)?\//, "$2");
+    console.log("test", url_test);
+  }
+  dns.lookup(url_test, function (err, data) {
+    console.log(err);
     console.log(data); // DNS resolved IP address
     if (!err) {
-      // get the last entry from mongodb for id
-      // increment id
-      // post new url to mongodb, { id: Number, url: "String" }
-      // TODO: place DB id in the short_url response.
       createAndSaveShortURL(req.body.url, (err, data) => {
         if (err) {
           console.log(err);
@@ -96,13 +99,22 @@ app.post("/api/shorturl", function (req, res) {
         }
       });
     } else {
-      res.json( {"error": "invalid url" });
+      res.json( {"error": "invalid url" , "err": err});
     }
   });
 });
 
-app.get("api/shorturl/:id", function (req, res) {
-  return null; // find in db the matching id and show the matching url in json
+app.get("/api/shorturl/:id", function (req, res) {
+  const id = parseInt(req.params.id);
+  ShortURL.findOne({"short_url": id}).exec((err, data) => {
+    if (err) {
+      res.json({  "error": err })
+    } else if (!isNaN(data.url)) {
+      res.json({ "url_error": "isNumber", "error": err , "data": data});
+    } else {
+      res.status(301).redirect(data.url);
+    }
+  })
 });
 
 app.listen(port, function () {
