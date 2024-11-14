@@ -48,22 +48,27 @@ const urlSchema = new mongoose.Schema({
 let ShortURL = mongoose.model('short_url', urlSchema);
 
 const findLatestID = (done) => {
-  ShortURL.find('id');
+  ShortURL.find({}).sort('-short_url').limit(1).exec((err, data) => {
+    done(err, data);
+  });
 }
 
 const createAndSaveShortURL = (original_url, done) => {
-  ShortURL.create({
-    url: original_url,
-    short_url: 2
-  }, function(err, data) {
-    if (err) {
-      if (err.code === 11000) { // duplicate key
-        console.log(err);
-        done(err, data);
+  findLatestID((err, data) => {
+    let short_url = parseInt(data[0].short_url) + 1;
+    ShortURL.create({
+      url: original_url,
+      short_url: short_url,
+    }, function(err, data) {
+      if (err) {
+        if (err.code === 11000) { // duplicate key
+          console.log(err);
+          done(err, data);
+        }
+      } else {
+        done(null, data);
       }
-    } else {
-      done(null, data);
-    }
+    });
   });
 }
 
