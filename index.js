@@ -80,28 +80,30 @@ app.post("/api/shorturl", function (req, res) {
   if (url_test.match(/^http.*/)) {
     url_test = url_test.replace(/(http|https):\/\/(.*)?\//, "$2");
     console.log("test", url_test);
-  }
-  dns.lookup(url_test, function (err, data) {
-    console.log(err);
-    console.log(data); // DNS resolved IP address
-    if (!err) {
-      createAndSaveShortURL(req.body.url, (err, data) => {
-        if (err) {
-          console.log(err);
-          if (err.code === 11000) {
-            res.json({ "internal error": "duplicate key", "error": err });
+    dns.lookup(url_test, function (err, data) {
+      console.log(err);
+      console.log(data); // DNS resolved IP address
+      if (!err) {
+        createAndSaveShortURL(req.body.url, (err, data) => {
+          if (err) {
+            console.log(err);
+            if (err.code === 11000) {
+              res.json({ "internal error": "duplicate key", "error": err });
+            } else {
+              res.json({ "error": err });
+            }
           } else {
-            res.json({ "error": err });
+            console.log(data);
+            res.json({"original_url": req.body.url, "short_url": data.short_url});
           }
-        } else {
-          console.log(data);
-          res.json({"original_url": req.body.url, "short_url": data.short_url});
-        }
-      });
-    } else {
-      res.json( {"error": "invalid url" , "err": err});
-    }
-  });
+        });
+      } else {
+        res.json( {"error": "invalid url" , "err": err});
+      }
+    });
+  } else {
+    res.json({"error": "invalid url"})
+  }
 });
 
 app.get("/api/shorturl/:id", function (req, res) {
