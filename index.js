@@ -2,10 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const dns = require("node:dns");
-const bodyParser = require("body-parser");
 const app = express();
+const bodyParser = require("body-parser");
 const mongoose = require('mongoose')
-const url = require("node:url");
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -23,7 +22,6 @@ app.get("/api/hello", function (req, res) {
   res.json({ greeting: "hello API" });
 });
 
-// TODO: setup mongodb connection
 mongoose.connect(
     process.env.MONGO_URI,
     {
@@ -76,34 +74,31 @@ const createAndSaveShortURL = (original_url, done) => {
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.post("/api/shorturl", function (req, res) {
-  let url_test = req.body.url;
-  if (url_test.match(/^http.*/)) {
-    url_test = url_test.replace(/(http|https):\/\/(.*)?\//, "$2");
-    console.log("test", url_test);
-    dns.lookup(url_test, function (err, data) {
-      console.log(err);
-      console.log(data); // DNS resolved IP address
-      if (!err) {
-        createAndSaveShortURL(req.body.url, (err, data) => {
-          if (err) {
-            console.log(err);
-            if (err.code === 11000) {
-              res.json({ "internal error": "duplicate key", "error": err });
-            } else {
-              res.json({ "error": err });
-            }
+  console.log("received", req.body.url);
+  let url = new URL(req.body.url).hostname;
+  console.log("test", url);
+  dns.lookup(url, function (err, data) {
+    console.log("error", err);
+    console.log("ip", data);
+    if (!err) {
+      console.log("success");
+      createAndSaveShortURL(req.body.url, (err, data) => {
+        if (err) {
+          console.log(err);
+          if (err.code === 11000) {
+            res.json({ "internal error": "duplicate key", "error": err });
           } else {
-            console.log(data);
-            res.json({"original_url": req.body.url, "short_url": data.short_url});
+            res.json({ "error": err });
           }
-        });
-      } else {
-        res.json( {"error": "invalid url" , "err": err});
-      }
-    });
-  } else {
-    res.json({"error": "invalid url"})
-  }
+        } else {
+          console.log(data);
+          res.json({"original_url": req.body.url, "short_url": data.short_url});
+        }
+      });
+    } else {
+      res.json( { "error": "invalid url" });
+    }
+  });
 });
 
 app.get("/api/shorturl/:id", function (req, res) {
