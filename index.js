@@ -28,6 +28,7 @@ mongoose.connect(
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      useCreateIndex: true,
       dbName: process.env.MONGO_DB_NAME
     });
 // setup schema
@@ -39,17 +40,30 @@ const urlSchema = new mongoose.Schema({
   short_url: {
     type: Number,
     required: true,
+    index: true,
+    unique: true
   }
 });
 // setup model
 let ShortURL = mongoose.model('short_url', urlSchema);
+
+const findLatestID = (done) => {
+  ShortURL.find('id');
+}
 
 const createAndSaveShortURL = (original_url, done) => {
   ShortURL.create({
     url: original_url,
     short_url: 2
   }, function(err, data) {
-    done(null, data);
+    if (err) {
+      if (err.code === 11000) { // duplicate key
+        console.log(err);
+        done(err, data);
+      }
+    } else {
+      done(null, data);
+    }
   });
 }
 
@@ -66,10 +80,15 @@ app.post("/api/shorturl", function (req, res) {
       createAndSaveShortURL(req.body.url, (err, data) => {
         if (err) {
           console.log(err);
-          return;
+          if (err.code === 11000) {
+            res.json({ "internal error": "duplicate key", "error": err });
+          } else {
+            res.json({ "error": err });
+          }
+        } else {
+          console.log(data);
+          res.json({"original_url": req.body.url, "short_url": data.short_url});
         }
-        console.log(data);
-        res.json({"original_url": req.body.url, "short_url": data.short_url});
       });
     } else {
       res.json( {"error": "invalid url" });
